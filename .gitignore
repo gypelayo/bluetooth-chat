@@ -1,0 +1,13 @@
+node_modules/
+*.apk
+*.aab
+.gradle/
+build/
+.idea/
+*.iml
+local.properties
+.DS_Store
+*.log
+__pycache__/
+.venv/
+
