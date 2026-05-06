@@ -615,7 +615,11 @@ export default function App() {
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const BLUE = '#007AFF';
 
-const getStyles = (isDark: boolean) => StyleSheet.create({
+const getStyles = (isDark: boolean) => {
+  const secondary = isDark ? '#30D158' : '#34C759'; // green accent
+  const secondaryBg = isDark ? '#1C1C1E' : '#F2F2F7';
+  
+  return StyleSheet.create({
   safe:           { flex: 1, backgroundColor: isDark ? '#000' : '#F2F2F7' },
   flex:           { flex: 1 },
 
@@ -623,9 +627,9 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
   title:          { fontSize: 26, fontWeight: '700', textAlign: 'center', marginBottom: 12, color: isDark ? '#FFF' : '#000' },
 
   statusRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#1C1C1E' : '#FFF', borderRadius: 10, padding: 10, marginBottom: 12 },
-  statusDot:      { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
-  dotGreen:       { backgroundColor: '#34C759' },
-  dotGrey:        { backgroundColor: '#8E8E93' },
+  statusDot:      { width: 10, height: 10, borderRadius: 5, marginRight: 8, backgroundColor: secondary },
+  dotGreen:       { backgroundColor: secondary },
+  dotGrey:        { backgroundColor: isDark ? '#8E8E93' : '#8E8E93' },
   statusText:     { fontSize: 13, color: isDark ? '#8E8E93' : '#666', flex: 1 },
 
   modeToggle:     { flexDirection: 'row', gap: 8, marginBottom: 12 },
@@ -648,7 +652,7 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
   chatHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: isDark ? '#1C1C1E' : '#FFF', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDark ? '#38383A' : '#CCC' },
   chatHeaderLeft:   { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
   chatHeaderTitle:  { fontSize: 16, fontWeight: '600', color: isDark ? '#FFF' : '#000', marginLeft: 6, flex: 1 },
-  greenDot:         { width: 9, height: 9, borderRadius: 5, backgroundColor: '#34C759' },
+  greenDot:         { width: 9, height: 9, borderRadius: 5, backgroundColor: secondary },
   discBtn:          { paddingHorizontal: 8, paddingVertical: 4 },
   discText:         { color: '#FF3B30', fontSize: 15, fontWeight: '500' },
 
@@ -672,3 +676,4 @@ const getStyles = (isDark: boolean) => StyleSheet.create({
   sendDisabled:   { backgroundColor: '#C7C7CC' },
   sendText:       { color: '#FFF', fontWeight: '700', fontSize: 15 },
 });
+};
