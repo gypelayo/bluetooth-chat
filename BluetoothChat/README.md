@@ -1,97 +1,115 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# Bluetooth Chat App
 
-# Getting Started
+A React Native mobile app for direct phone-to-phone BLE messaging and built-in games (Rock Paper Scissors). Works completely offline without internet.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Features
 
-## Step 1: Start Metro
+- **Direct BLE Communication**: Phone-to-phone messaging via Bluetooth Low Energy (no server/relay needed)
+- **Dual Mode**: Works as both Central (scans/connects) and Peripheral (advertises/responds)
+- **Built-in Games**: Rock Paper Scissors game that works over the same BLE connection
+- **Offline First**: Works without internet - all communication is peer-to-peer via BLE
+- **Dark Mode**: Automatically adapts to system theme
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+## Requirements
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+- React Native 0.76.x
+- Android 6.0+ (API 23+) with Bluetooth 4.0+ (BLE support)
+- Two Android devices for phone-to-phone testing
 
-```sh
-# Using npm
+## Installation
+
+### Option 1: Pre-built APK
+
+Install the APK directly on your Android phone:
+```
+android/app/build/outputs/apk/release/app-release.apk
+```
+
+### Option 2: Build from Source
+
+```bash
+# Install dependencies
+cd BluetoothChat
+npm install
+
+# Build debug APK
+cd android
+./gradlew assembleDebug
+
+# APK location: android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+### Option 3: Development Mode
+
+```bash
+# Start Metro bundler
 npm start
 
-# OR using Yarn
-yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
+# Run on connected device (requires Metro)
 npm run android
-
-# OR using Yarn
-yarn android
 ```
 
-### iOS
+For live reload, connect to Metro:
+1. Shake device → Dev Settings
+2. Debug server host & port: `YOUR_PC_IP:8081`
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## Usage
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+### Starting the App
 
-```sh
-bundle install
-```
+1. Open the app on your Android phone
+2. Grant Bluetooth permissions when prompted
+3. The app will start advertising and scanning automatically
 
-Then, and every time you update your native dependencies, run:
+### Connecting Two Phones
 
-```sh
-bundle exec pod install
-```
+1. **Phone A**: Open app → Appears in device list on Phone B
+2. **Phone B**: Open app → Tap on Phone A's name to connect
+3. Once connected, you can send messages
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+### Sending Messages
 
-```sh
-# Using npm
-npm run ios
+1. Type a message in the text input
+2. Tap **Send** or press Enter
+3. Message appears in the chat
 
-# OR using Yarn
-yarn ios
-```
+### Playing Rock Paper Scissors
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+1. Tap the **🎮** button in the chat header
+2. **To invite**: Tap "Start Game" → Wait for opponent to accept
+3. **To accept**: Tap "Accept" on the game invitation
+4. Both players pick Rock (✊), Paper (✋), or Scissors (✌️)
+5. Results are shown simultaneously to both players
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+## Technical Details
 
-## Step 3: Modify your app
+### BLE Protocol
 
-Now that you have successfully run the app, let's make changes!
+- **Service UUID**: `12345678-1234-1234-1234-1234567890ab`
+- **Message Characteristic UUID**: `abcdefab-1234-1234-1234-abcdefabcdef`
+- **Name Characteristic UUID**: `fedcba98-1234-1234-1234-abcdefabcdef`
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+### Message Flow
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+- **Central → Peripheral**: Uses `writeCharacteristicWithResponseForService`
+- **Peripheral → Central**: Uses polling (Android blocks notifications for third-party apps) - Central polls every 2 seconds
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+### Game Protocol
 
-## Congratulations! :tada:
+Game messages are prefixed with `!game:` to differentiate from chat:
+- `!game:invite:rps` - Game invitation
+- `!game:accept:rps` - Accept invitation
+- `!game:rps:<0|1|2>` - Move (0=rock, 1=paper, 2=scissors)
+- `!game:result:win|lose|draw` - Game result
 
-You've successfully run and modified your React Native App. :partying_face:
+The Central device is the source of truth - calculates results and sends to both players.
 
-### Now what?
+## Architecture
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+- `react-native-ble-plx` - Central role (scan/connect/write)
+- Custom native module (`BlePeripheralModule`) - Peripheral role (advertise/notify)
+- React Context for BLE state management
 
-# Troubleshooting
+## License
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+MIT
