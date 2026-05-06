@@ -270,10 +270,15 @@ public class BlePeripheralModule extends ReactContextBaseJavaModule {
             
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 connectedDevice = device;
-                Log.d(TAG, "Device connected: " + device.getAddress());
+                // Try to get device name, or use address as fallback
+                String deviceName = device.getName();
+                if (deviceName == null || deviceName.isEmpty()) {
+                    deviceName = "Device_" + device.getAddress().substring(device.getAddress().length() - 5);
+                }
+                Log.d(TAG, "Device connected: " + device.getAddress() + " name: " + deviceName);
                 WritableMap params1 = Arguments.createMap();
                 params1.putString("deviceId", device.getAddress());
-                params1.putString("deviceName", device.getName() != null ? device.getName() : "Unknown");
+                params1.putString("deviceName", deviceName);
                 sendEvent("onDeviceConnected", params1);
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "Device disconnected");

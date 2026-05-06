@@ -487,7 +487,7 @@ export default function App() {
   const inviteToGame = async () => {
     setGameState({
       type: 'rps',
-      status: 'invited',
+      status: 'waiting', // We're waiting for opponent to accept
       myMove: null,
       theirMove: null,
       result: null,
@@ -580,20 +580,62 @@ export default function App() {
       });
       setShowGame(false);
     } else if (gameType === 'rps') {
-      // Received move
+      // Received move from opponent
       const theirMove = parseInt(action, 10) as RPSMove;
-      setGameState(prev => {
-        const newState = { ...prev, theirMove };
-        if (prev.myMove !== null) {
-          // Both have moved, calculate result
-          newState.result = calculateResult(prev.myMove, theirMove);
-          newState.status = 'finished';
-          setStatus(newState.result === 'win' ? 'You win!' : newState.result === 'lose' ? 'You lose!' : "It's a draw!");
+      
+      // Handle based on who we are
+      if (mode === 'central') {
+        // Central is source of truth - calculate result if both moved
+        if (gameState.myMove !== null) {
+          // Both have moved - calculate and send result
+          const result = calculateResult(gameState.myMove, theirMove);
+          setGameState(prev => ({
+            ...prev,
+            theirMove,
+            result,
+            status: 'finished'
+          }));
+          setStatus(result === 'win' ? 'You win!' : result === 'lose' ? 'You lose!' : "It's a draw!");
+          // Send result to peripheral
+          await sendGameMessage(`result:${result}`);
         } else {
-          newState.status = 'waiting';
+          // Central received move but hasn't moved yet - keep playing
+          setGameState(prev => ({
+            ...prev,
+            theirMove,
+            status: 'playing'
+          }));
+          setStatus('Opponent picked! Your turn!');
         }
-        return newState;
-      });
+      } else {
+        // Peripheral - wait for result from central
+        if (gameState.myMove !== null) {
+          // Both have moved - wait for central's result
+          setGameState(prev => ({
+            ...prev,
+            theirMove,
+            status: 'waiting'
+          }));
+          setStatus('You both picked! Waiting for result...');
+        } else {
+          // Peripheral received move but hasn't moved yet - keep playing
+          setGameState(prev => ({
+            ...prev,
+            theirMove,
+            status: 'playing'
+          }));
+          setStatus('Opponent picked! Your turn!');
+        }
+      }
+    } else if (gameType === 'result') {
+      // Received game result from central
+      const result = action as GameResult;
+      setGameState(prev => ({
+        ...prev,
+        result,
+        status: 'finished'
+      }));
+      setStatus(result === 'win' ? 'You win!' : result === 'lose' ? 'You lose!' : "It's a draw!");
     } else if (gameType === 'quit') {
       setStatus('Opponent quit the game');
       setGameState({
@@ -739,9 +781,7 @@ export default function App() {
                 {(gameState.status === 'playing' || gameState.status === 'waiting') && gameState.type === 'rps' && (
                   <View style={s.gameMenu}>
                     <Text style={s.gameTitle}>Rock Paper Scissors</Text>
-                    <Text style={s.gameStatus}>
-                      {gameState.myMove !== null ? 'Waiting for opponent...' : 'Choose your move!'}
-                    </Text>
+                    <Text style={s.gameStatus}>{status}</Text>
                     <View style={s.rpsButtons}>
                       <TouchableOpacity 
                         style={[s.rpsBtn, gameState.myMove === 0 && s.rpsBtnSelected]} 
