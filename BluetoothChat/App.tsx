@@ -27,6 +27,7 @@ import {
   PermissionsAndroid,
   ActivityIndicator,
   KeyboardAvoidingView,
+  useColorScheme,
 } from 'react-native';
 
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -74,6 +75,9 @@ export default function App() {
 
   // Mode: 'central' = scan/connect, 'peripheral' = advertise
   const [mode, setMode]                   = useState<'central' | 'peripheral'>('central');
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const s = getStyles(isDark);
   
   const [devices, setDevices]             = useState<Device[]>([]);
   const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
@@ -610,23 +614,24 @@ export default function App() {
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 const BLUE = '#007AFF';
-const s = StyleSheet.create({
-  safe:           { flex: 1, backgroundColor: '#F2F2F7' },
+
+const getStyles = (isDark: boolean) => StyleSheet.create({
+  safe:           { flex: 1, backgroundColor: isDark ? '#000' : '#F2F2F7' },
   flex:           { flex: 1 },
 
   discContainer:  { flex: 1, padding: 16, paddingTop: 12 },
-  title:          { fontSize: 26, fontWeight: '700', textAlign: 'center', marginBottom: 12, color: '#000' },
+  title:          { fontSize: 26, fontWeight: '700', textAlign: 'center', marginBottom: 12, color: isDark ? '#FFF' : '#000' },
 
-  statusRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 10, padding: 10, marginBottom: 12 },
+  statusRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: isDark ? '#1C1C1E' : '#FFF', borderRadius: 10, padding: 10, marginBottom: 12 },
   statusDot:      { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
   dotGreen:       { backgroundColor: '#34C759' },
   dotGrey:        { backgroundColor: '#8E8E93' },
-  statusText:     { fontSize: 13, color: '#666', flex: 1 },
+  statusText:     { fontSize: 13, color: isDark ? '#8E8E93' : '#666', flex: 1 },
 
   modeToggle:     { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  modeBtn:        { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#E5E5EA', alignItems: 'center' },
+  modeBtn:        { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: isDark ? '#2C2C2E' : '#E5E5EA', alignItems: 'center' },
   modeBtnActive:  { backgroundColor: BLUE },
-  modeBtnText:    { fontSize: 14, fontWeight: '600', color: '#666' },
+  modeBtnText:    { fontSize: 14, fontWeight: '600', color: isDark ? '#8E8E93' : '#666' },
   modeBtnTextActive: { color: '#FFF' },
 
   scanBtn:        { backgroundColor: BLUE, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 12 },
@@ -634,15 +639,15 @@ const s = StyleSheet.create({
   scanBtnText:    { color: '#FFF', fontSize: 16, fontWeight: '700' },
   scanningRow:    { flexDirection: 'row', alignItems: 'center' },
 
-  sectionLabel:   { fontSize: 13, color: '#666', marginBottom: 8 },
+  sectionLabel:   { fontSize: 13, color: isDark ? '#8E8E93' : '#666', marginBottom: 8 },
   deviceList:     { flex: 1 },
-  deviceItem:     { backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 8 },
-  deviceName:     { fontSize: 15, fontWeight: '600', color: '#000' },
-  deviceSub:      { fontSize: 12, color: '#666', marginTop: 3, fontFamily: 'monospace' },
+  deviceItem:     { backgroundColor: isDark ? '#1C1C1E' : '#FFF', borderRadius: 12, padding: 14, marginBottom: 8 },
+  deviceName:     { fontSize: 15, fontWeight: '600', color: isDark ? '#FFF' : '#000' },
+  deviceSub:      { fontSize: 12, color: isDark ? '#8E8E93' : '#666', marginTop: 3, fontFamily: 'monospace' },
 
-  chatHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#CCC' },
+  chatHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: isDark ? '#1C1C1E' : '#FFF', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: isDark ? '#38383A' : '#CCC' },
   chatHeaderLeft:   { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
-  chatHeaderTitle:  { fontSize: 16, fontWeight: '600', color: '#000', marginLeft: 6, flex: 1 },
+  chatHeaderTitle:  { fontSize: 16, fontWeight: '600', color: isDark ? '#FFF' : '#000', marginLeft: 6, flex: 1 },
   greenDot:         { width: 9, height: 9, borderRadius: 5, backgroundColor: '#34C759' },
   discBtn:          { paddingHorizontal: 8, paddingVertical: 4 },
   discText:         { color: '#FF3B30', fontSize: 15, fontWeight: '500' },
@@ -652,17 +657,17 @@ const s = StyleSheet.create({
 
   bubble:         { maxWidth: '80%', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, marginBottom: 8 },
   bubbleOwn:      { backgroundColor: BLUE, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
-  bubblePeer:     { backgroundColor: '#E5E5EA', alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-  bubbleSender:   { fontSize: 11, fontWeight: '600', color: '#666', marginBottom: 2 },
+  bubblePeer:     { backgroundColor: isDark ? '#2C2C2E' : '#E5E5EA', alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
+  bubbleSender:   { fontSize: 11, fontWeight: '600', color: isDark ? '#8E8E93' : '#666', marginBottom: 2 },
   bubbleText:     { fontSize: 15 },
   textOwn:        { color: '#FFF' },
-  textPeer:       { color: '#000' },
+  textPeer:       { color: isDark ? '#FFF' : '#000' },
   bubbleTime:     { fontSize: 10, marginTop: 3 },
   timeOwn:        { color: 'rgba(255,255,255,0.65)', textAlign: 'right' },
-  timePeer:       { color: '#666' },
+  timePeer:       { color: isDark ? '#8E8E93' : '#666' },
 
-  inputRow:       { flexDirection: 'row', padding: 10, paddingBottom: 10, backgroundColor: '#FFF', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#CCC', gap: 8, alignItems: 'flex-end' },
-  input:          { flex: 1, borderWidth: 1, borderColor: '#CCC', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F2F2F7', fontSize: 15, color: '#000', maxHeight: 100 },
+  inputRow:       { flexDirection: 'row', padding: 10, paddingBottom: 10, backgroundColor: isDark ? '#1C1C1E' : '#FFF', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: isDark ? '#38383A' : '#CCC', gap: 8, alignItems: 'flex-end' },
+  input:          { flex: 1, borderWidth: 1, borderColor: isDark ? '#38383A' : '#CCC', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7', fontSize: 15, color: isDark ? '#FFF' : '#000', maxHeight: 100 },
   sendBtn:        { backgroundColor: BLUE, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10 },
   sendDisabled:   { backgroundColor: '#C7C7CC' },
   sendText:       { color: '#FFF', fontWeight: '700', fontSize: 15 },
