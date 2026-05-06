@@ -9,10 +9,19 @@
  *   - Central mode: Scan for devices, connect, chat
  *   - Peripheral mode: Advertise as server, receive connections, chat
  *   - Mode toggle to switch between central/peripheral
+ *   - Built-in games (Rock Paper Scissors)
  *
  * Protocol:
  *   Service UUID      : 12345678-1234-1234-1234-1234567890ab
  *   Message Char UUID : abcdefab-1234-1234-1234-abcdefabcdef
+ *
+ * Game Protocol (messages start with "!game"):
+ *   !game:invite - Game invitation
+ *   !game:accept - Accept game
+ *   !game:reject - Reject game
+ *   !game:rps:<move> - Rock paper scissors move (0=rock, 1=paper, 2=scissors)
+ *   !game:result:<result> - Game result
+ *   !game:quit - Quit game
  */
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
@@ -61,6 +70,20 @@ type DiscoveredPeer = {
   name?: string;
 };
 
+// Game types
+type GameType = 'rps' | null;
+type RPSMove = 0 | 1 | 2; // 0=rock, 1=paper, 2=scissors
+type GameStatus = 'idle' | 'invited' | 'playing' | 'waiting' | 'finished';
+type GameResult = 'win' | 'lose' | 'draw' | null;
+
+type GameState = {
+  type: GameType;
+  status: GameStatus;
+  myMove: RPSMove | null;
+  theirMove: RPSMove | null;
+  result: GameResult;
+};
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const encodeMsg = (text: string): string =>
   Buffer.from(text, 'utf8').toString('base64');
@@ -71,7 +94,6 @@ const decodeMsg = (b64: string): string =>
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function App() {
   const [myName, setMyName]               = useState('User');
-  const [nameInput, setNameInput]         = useState('User');
 
   // Mode: 'central' = scan/connect, 'peripheral' = advertise
   const [mode, setMode]                   = useState<'central' | 'peripheral'>('central');
@@ -91,6 +113,16 @@ export default function App() {
   const [advertising, setAdvertising]    = useState(false);
   const [bleReady, setBleReady]         = useState(false);
   const [status, setStatus]              = useState('Initialising…');
+  const [showGame, setShowGame]         = useState(false);
+  
+  // Game state
+  const [gameState, setGameState]       = useState<GameState>({
+    type: null,
+    status: 'idle',
+    myMove: null,
+    theirMove: null,
+    result: null,
+  });
 
   const scanTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flatListRef  = useRef<FlatList<Message>>(null);
@@ -128,13 +160,19 @@ export default function App() {
       });
       
       const messageSub = blePeripheralEmitter.addListener('onMessageReceived', (event) => {
-        addMessage({
-          id:        `${Date.now()}-in-${Math.random()}`,
-          text:      event.message,
-          sender:    event.deviceName || 'Unknown',
-          timestamp: Date.now(),
-          isOwn:     false,
-        });
+        const msg = event.message;
+        // Check for game messages
+        if (msg.startsWith('!game:')) {
+          handleGameMessage(msg);
+        } else {
+          addMessage({
+            id:        `${Date.now()}-in-${Math.random()}`,
+            text:      msg,
+            sender:    event.deviceName || 'Unknown',
+            timestamp: Date.now(),
+            isOwn:     false,
+          });
+        }
       });
 
       return () => {
@@ -282,13 +320,19 @@ export default function App() {
             const text = decodeMsg(char.value).trim();
             if (!text || text === lastReadRef.current) return;
             lastReadRef.current = text;
-            addMessage({
-              id:        `${Date.now()}-in-${Math.random()}`,
-              text,
-              sender:    connected.name ?? device.id,
-              timestamp: Date.now(),
-              isOwn:     false,
-            });
+            
+            // Check for game messages
+            if (text.startsWith('!game:')) {
+              handleGameMessage(text);
+            } else {
+              addMessage({
+                id:        `${Date.now()}-in-${Math.random()}`,
+                text,
+                sender:    connected.name ?? device.id,
+                timestamp: Date.now(),
+                isOwn:     false,
+              });
+            }
           }
         }
       );
@@ -394,14 +438,149 @@ export default function App() {
     }
     setMessages([]);
     setStatus('Ready');
+    // Reset game state
+    setGameState({
+      type: null,
+      status: 'idle',
+      myMove: null,
+      theirMove: null,
+      result: null,
+    });
+    setShowGame(false);
   };
 
-  // ── Apply name ────────────────────────────────────────────────────────────
-  const applyName = () => {
-    const n = nameInput.trim() || 'User';
-    setMyName(n);
-    if (mode === 'peripheral' && advertising) {
-      stopAdvertising().then(() => startAdvertising());
+  // ── Game Functions ────────────────────────────────────────────────────────
+  const sendGameMessage = async (msg: string) => {
+    const fullMsg = '!game:' + msg;
+    if (mode === 'central' && connectedDevice) {
+      await connectedDevice.writeCharacteristicWithResponseForService(
+        SERVICE_UUID, MESSAGE_CHAR_UUID, encodeMsg(fullMsg)
+      );
+    } else if (mode === 'peripheral' && peripheralConnected && BlePeripheral) {
+      await BlePeripheral.sendNotification(fullMsg);
+    }
+  };
+
+  const inviteToGame = async () => {
+    setGameState({
+      type: 'rps',
+      status: 'invited',
+      myMove: null,
+      theirMove: null,
+      result: null,
+    });
+    setShowGame(true);
+    await sendGameMessage('invite:rps');
+    setStatus('Waiting for opponent to accept...');
+  };
+
+  const acceptGame = async () => {
+    setGameState(prev => ({ ...prev, status: 'playing' }));
+    await sendGameMessage('accept:rps');
+    setStatus('Make your move!');
+  };
+
+  const rejectGame = async () => {
+    setGameState({
+      type: null,
+      status: 'idle',
+      myMove: null,
+      theirMove: null,
+      result: null,
+    });
+    setShowGame(false);
+    await sendGameMessage('reject:rps');
+    setStatus('Ready');
+  };
+
+  const makeMove = async (move: RPSMove) => {
+    setGameState(prev => ({ ...prev, myMove: move, status: 'waiting' }));
+    await sendGameMessage(`rps:${move}`);
+    setStatus('Waiting for opponent...');
+  };
+
+  const calculateResult = (myMove: RPSMove, theirMove: RPSMove): GameResult => {
+    if (myMove === theirMove) return 'draw';
+    if (
+      (myMove === 0 && theirMove === 2) ||
+      (myMove === 1 && theirMove === 0) ||
+      (myMove === 2 && theirMove === 1)
+    ) {
+      return 'win';
+    }
+    return 'lose';
+  };
+
+  const quitGame = async () => {
+    await sendGameMessage('quit');
+    setGameState({
+      type: null,
+      status: 'idle',
+      myMove: null,
+      theirMove: null,
+      result: null,
+    });
+    setShowGame(false);
+    setStatus('Ready');
+  };
+
+  // Handle incoming game messages
+  const handleGameMessage = async (text: string) => {
+    const parts = text.split(':');
+    const gameType = parts[1];
+    const action = parts[2];
+
+    if (gameType === 'invite' && action === 'rps') {
+      // Received game invite
+      setGameState({
+        type: 'rps',
+        status: 'invited',
+        myMove: null,
+        theirMove: null,
+        result: null,
+      });
+      setShowGame(true);
+      setStatus('Incoming game request!');
+    } else if (gameType === 'accept' && action === 'rps') {
+      // Opponent accepted
+      setGameState(prev => ({ ...prev, status: 'playing' }));
+      setStatus('Game started! Make your move!');
+    } else if (gameType === 'reject' && action === 'rps') {
+      // Opponent rejected
+      setStatus('Game request declined');
+      setGameState({
+        type: null,
+        status: 'idle',
+        myMove: null,
+        theirMove: null,
+        result: null,
+      });
+      setShowGame(false);
+    } else if (gameType === 'rps') {
+      // Received move
+      const theirMove = parseInt(action, 10) as RPSMove;
+      setGameState(prev => {
+        const newState = { ...prev, theirMove };
+        if (prev.myMove !== null) {
+          // Both have moved, calculate result
+          newState.result = calculateResult(prev.myMove, theirMove);
+          newState.status = 'finished';
+          setStatus(newState.result === 'win' ? 'You win!' : newState.result === 'lose' ? 'You lose!' : "It's a draw!");
+        } else {
+          newState.status = 'waiting';
+        }
+        return newState;
+      });
+    } else if (gameType === 'quit') {
+      setStatus('Opponent quit the game');
+      setGameState({
+        type: null,
+        status: 'idle',
+        myMove: null,
+        theirMove: null,
+        result: null,
+      });
+      setShowGame(false);
     }
   };
 
@@ -450,9 +629,17 @@ export default function App() {
                   {currentChatName}
                 </Text>
               </View>
-              <TouchableOpacity style={s.discBtn} onPress={disconnect}>
-                <Text style={s.discText}>Disconnect</Text>
-              </TouchableOpacity>
+              <View style={s.headerButtons}>
+                <TouchableOpacity 
+                  style={[s.gameBtn, gameState.status !== 'idle' && s.gameBtnActive]} 
+                  onPress={() => setShowGame(!showGame)}
+                >
+                  <Text style={s.gameBtnText}>🎮</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.discBtn} onPress={disconnect}>
+                  <Text style={s.discText}>Disconnect</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             {/* Messages */}
@@ -495,6 +682,108 @@ export default function App() {
                 <Text style={s.sendText}>Send</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Game Overlay */}
+            {showGame && (
+              <View style={s.gameOverlay}>
+                {gameState.status === 'idle' && (
+                  <View style={s.gameMenu}>
+                    <Text style={s.gameTitle}>Games</Text>
+                    <TouchableOpacity style={s.gameOption} onPress={inviteToGame}>
+                      <Text style={s.gameOptionText}>🪨📄✂️ Rock Paper Scissors</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={s.gameCloseBtn} onPress={() => setShowGame(false)}>
+                      <Text style={s.gameCloseText}>Close</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {gameState.status === 'invited' && gameState.type === 'rps' && (
+                  <View style={s.gameMenu}>
+                    <Text style={s.gameTitle}>Rock Paper Scissors</Text>
+                    <Text style={s.gameStatus}>Opponent wants to play!</Text>
+                    <View style={s.gameButtons}>
+                      <TouchableOpacity style={s.gameAcceptBtn} onPress={acceptGame}>
+                        <Text style={s.gameBtnLabel}>Accept</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={s.gameRejectBtn} onPress={rejectGame}>
+                        <Text style={s.gameBtnLabel}>Decline</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+
+                {(gameState.status === 'playing' || gameState.status === 'waiting') && gameState.type === 'rps' && (
+                  <View style={s.gameMenu}>
+                    <Text style={s.gameTitle}>Rock Paper Scissors</Text>
+                    <Text style={s.gameStatus}>
+                      {gameState.status === 'playing' ? 'Choose your move!' : 'Waiting for opponent...'}
+                    </Text>
+                    <View style={s.rpsButtons}>
+                      <TouchableOpacity 
+                        style={[s.rpsBtn, gameState.myMove === 0 && s.rpsBtnSelected]} 
+                        onPress={() => makeMove(0)}
+                        disabled={gameState.status === 'waiting'}
+                      >
+                        <Text style={s.rpsEmoji}>🪨</Text>
+                        <Text style={s.rpsLabel}>Rock</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[s.rpsBtn, gameState.myMove === 1 && s.rpsBtnSelected]} 
+                        onPress={() => makeMove(1)}
+                        disabled={gameState.status === 'waiting'}
+                      >
+                        <Text style={s.rpsEmoji}>📄</Text>
+                        <Text style={s.rpsLabel}>Paper</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={[s.rpsBtn, gameState.myMove === 2 && s.rpsBtnSelected]} 
+                        onPress={() => makeMove(2)}
+                        disabled={gameState.status === 'waiting'}
+                      >
+                        <Text style={s.rpsEmoji}>✂️</Text>
+                        <Text style={s.rpsLabel}>Scissors</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <TouchableOpacity style={s.gameQuitBtn} onPress={quitGame}>
+                      <Text style={s.gameQuitText}>Quit Game</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {gameState.status === 'finished' && gameState.type === 'rps' && (
+                  <View style={s.gameMenu}>
+                    <Text style={s.gameTitle}>Rock Paper Scissors</Text>
+                    <Text style={s.gameResult}>
+                      {gameState.result === 'win' ? '🎉 You Win!' : gameState.result === 'lose' ? '😢 You Lose!' : '🤝 Draw!'}
+                    </Text>
+                    <View style={s.resultMoves}>
+                      <View style={s.moveDisplay}>
+                        <Text style={s.moveEmoji}>
+                          {gameState.myMove === 0 ? '🪨' : gameState.myMove === 1 ? '📄' : '✂️'}
+                        </Text>
+                        <Text style={s.moveLabel}>You</Text>
+                      </View>
+                      <Text style={s.vsText}>vs</Text>
+                      <View style={s.moveDisplay}>
+                        <Text style={s.moveEmoji}>
+                          {gameState.theirMove === 0 ? '🪨' : gameState.theirMove === 1 ? '📄' : '✂️'}
+                        </Text>
+                        <Text style={s.moveLabel}>Them</Text>
+                      </View>
+                    </View>
+                    <View style={s.gameButtons}>
+                      <TouchableOpacity style={s.gameAcceptBtn} onPress={inviteToGame}>
+                        <Text style={s.gameBtnLabel}>Play Again</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={s.gameRejectBtn} onPress={quitGame}>
+                        <Text style={s.gameBtnLabel}>Done</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
           </KeyboardAvoidingView>
         </SafeAreaView>
       </SafeAreaProvider>
@@ -675,5 +964,41 @@ const getStyles = (isDark: boolean) => {
   sendBtn:        { backgroundColor: BLUE, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10 },
   sendDisabled:   { backgroundColor: '#C7C7CC' },
   sendText:       { color: '#FFF', fontWeight: '700', fontSize: 15 },
+
+  // Game styles
+  headerButtons: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  gameBtn:      { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: isDark ? '#2C2C2E' : '#E5E5EA' },
+  gameBtnActive: { backgroundColor: BLUE },
+  gameBtnText:  { fontSize: 18 },
+  
+  gameOverlay:   { position: 'absolute', bottom: 70, left: 10, right: 10, backgroundColor: isDark ? '#1C1C1E' : '#FFF', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 5 },
+  gameMenu:      { alignItems: 'center' },
+  gameTitle:    { fontSize: 20, fontWeight: '700', color: isDark ? '#FFF' : '#000', marginBottom: 12 },
+  gameStatus:   { fontSize: 14, color: isDark ? '#8E8E93' : '#666', marginBottom: 16, textAlign: 'center' },
+  gameOption:    { backgroundColor: BLUE, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10, marginBottom: 12, width: '100%' },
+  gameOptionText:{ color: '#FFF', fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  gameCloseBtn:  { paddingVertical: 8 },
+  gameCloseText: { color: isDark ? '#8E8E93' : '#666', fontSize: 14 },
+  
+  gameButtons:   { flexDirection: 'row', gap: 12, marginTop: 8 },
+  gameAcceptBtn: { backgroundColor: '#34C759', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
+  gameRejectBtn: { backgroundColor: '#FF3B30', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8 },
+  gameBtnLabel:  { color: '#FFF', fontWeight: '600', fontSize: 14 },
+  
+  rpsButtons:    { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginVertical: 12 },
+  rpsBtn:       { alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: isDark ? '#2C2C2E' : '#F2F2F7', minWidth: 80 },
+  rpsBtnSelected:{ backgroundColor: BLUE },
+  rpsEmoji:     { fontSize: 32 },
+  rpsLabel:     { fontSize: 12, color: isDark ? '#FFF' : '#000', marginTop: 4 },
+  
+  gameQuitBtn:  { marginTop: 16, paddingVertical: 8 },
+  gameQuitText: { color: '#FF3B30', fontSize: 14 },
+  
+  gameResult:    { fontSize: 28, fontWeight: '700', marginBottom: 16 },
+  resultMoves:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 20, marginBottom: 16 },
+  moveDisplay:   { alignItems: 'center' },
+  moveEmoji:     { fontSize: 40 },
+  moveLabel:     { fontSize: 12, color: isDark ? '#8E8E93' : '#666' },
+  vsText:       { fontSize: 16, color: isDark ? '#8E8E93' : '#666' },
 });
 };
