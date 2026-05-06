@@ -28,6 +28,7 @@ import {
   Platform,
   ActivityIndicator,
   KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -433,7 +434,11 @@ export default function App() {
     return (
       <SafeAreaProvider>
         <SafeAreaView style={s.safe}>
-          <View style={s.flex}>
+          <KeyboardAvoidingView
+            style={s.flex}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            keyboardVerticalOffset={0}
+          >
             {/* Header */}
             <View style={s.chatHeader}>
               <View style={s.chatHeaderLeft}>
@@ -466,34 +471,30 @@ export default function App() {
                 </View>
               )}
               onKeyboardWillShow={() => flatListRef.current?.scrollToEnd({ animated: true })}
+              onKeyboardDidShow={() => flatListRef.current?.scrollToEnd({ animated: true })}
             />
 
             {/* Input */}
-            <KeyboardAvoidingView
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
-            >
-              <View style={s.inputRow}>
-                <TextInput
-                  style={s.input}
-                  value={inputText}
-                  onChangeText={setInputText}
-                  placeholder="Type a message…"
-                  placeholderTextColor="#aaa"
-                  returnKeyType="send"
-                  onSubmitEditing={handleSend}
-                  blurOnSubmit={false}
-                />
-                <TouchableOpacity
-                  style={[s.sendBtn, !inputText.trim() && s.sendDisabled]}
-                  onPress={handleSend}
-                  disabled={!inputText.trim()}
-                >
-                  <Text style={s.sendText}>Send</Text>
-                </TouchableOpacity>
-              </View>
-            </KeyboardAvoidingView>
-          </View>
+            <View style={s.inputRow}>
+              <TextInput
+                style={s.input}
+                value={inputText}
+                onChangeText={setInputText}
+                placeholder="Type a message…"
+                placeholderTextColor="#aaa"
+                returnKeyType="send"
+                onSubmitEditing={handleSend}
+                blurOnSubmit={false}
+              />
+              <TouchableOpacity
+                style={[s.sendBtn, !inputText.trim() && s.sendDisabled]}
+                onPress={handleSend}
+                disabled={!inputText.trim()}
+              >
+                <Text style={s.sendText}>Send</Text>
+              </TouchableOpacity>
+            </View>
+          </KeyboardAvoidingView>
         </SafeAreaView>
       </SafeAreaProvider>
     );
