@@ -25,10 +25,8 @@ import {
   TouchableOpacity,
   Alert,
   PermissionsAndroid,
-  Platform,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Keyboard,
 } from 'react-native';
 
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
@@ -436,8 +434,9 @@ export default function App() {
         <SafeAreaView style={s.safe}>
           <KeyboardAvoidingView
             style={s.flex}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="padding"
             keyboardVerticalOffset={0}
+            enabled
           >
             {/* Header */}
             <View style={s.chatHeader}>
@@ -470,8 +469,6 @@ export default function App() {
                   </Text>
                 </View>
               )}
-              onKeyboardWillShow={() => flatListRef.current?.scrollToEnd({ animated: true })}
-              onKeyboardDidShow={() => flatListRef.current?.scrollToEnd({ animated: true })}
             />
 
             {/* Input */}
@@ -532,22 +529,6 @@ export default function App() {
               <Text style={[s.modeBtnText, mode === 'peripheral' && s.modeBtnTextActive]}>
                 Peripheral (Advertise)
               </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Name input */}
-          <View style={s.nameRow}>
-            <TextInput
-              style={s.nameInput}
-              value={nameInput}
-              onChangeText={setNameInput}
-              placeholder="Your display name"
-              placeholderTextColor="#aaa"
-              returnKeyType="done"
-              onSubmitEditing={applyName}
-            />
-            <TouchableOpacity style={s.nameBtn} onPress={applyName}>
-              <Text style={s.nameBtnText}>Set</Text>
             </TouchableOpacity>
           </View>
 
@@ -634,39 +615,34 @@ const s = StyleSheet.create({
   flex:           { flex: 1 },
 
   discContainer:  { flex: 1, padding: 16, paddingTop: 12 },
-  title:          { fontSize: 26, fontWeight: '700', textAlign: 'center', marginBottom: 12, color: '#1C1C1E' },
+  title:          { fontSize: 26, fontWeight: '700', textAlign: 'center', marginBottom: 12, color: '#000' },
 
-  statusRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 10, padding: 10, marginBottom: 12 },
+  statusRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 10, padding: 10, marginBottom: 12 },
   statusDot:      { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
   dotGreen:       { backgroundColor: '#34C759' },
   dotGrey:        { backgroundColor: '#8E8E93' },
-  statusText:     { fontSize: 13, color: '#3C3C43', flex: 1 },
+  statusText:     { fontSize: 13, color: '#666', flex: 1 },
 
   modeToggle:     { flexDirection: 'row', gap: 8, marginBottom: 12 },
   modeBtn:        { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: '#E5E5EA', alignItems: 'center' },
   modeBtnActive:  { backgroundColor: BLUE },
-  modeBtnText:    { fontSize: 14, fontWeight: '600', color: '#8E8E93' },
-  modeBtnTextActive: { color: '#fff' },
-
-  nameRow:        { flexDirection: 'row', gap: 8, marginBottom: 12 },
-  nameInput:      { flex: 1, borderWidth: 1, borderColor: '#D1D1D6', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#fff', fontSize: 15, color: '#1C1C1E' },
-  nameBtn:        { backgroundColor: BLUE, borderRadius: 10, paddingHorizontal: 16, justifyContent: 'center' },
-  nameBtnText:    { color: '#fff', fontWeight: '600', fontSize: 15 },
+  modeBtnText:    { fontSize: 14, fontWeight: '600', color: '#666' },
+  modeBtnTextActive: { color: '#FFF' },
 
   scanBtn:        { backgroundColor: BLUE, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 12 },
   scanBtnStop:    { backgroundColor: '#FF3B30' },
-  scanBtnText:    { color: '#fff', fontSize: 16, fontWeight: '700' },
+  scanBtnText:    { color: '#FFF', fontSize: 16, fontWeight: '700' },
   scanningRow:    { flexDirection: 'row', alignItems: 'center' },
 
-  sectionLabel:   { fontSize: 13, color: '#8E8E93', marginBottom: 8 },
+  sectionLabel:   { fontSize: 13, color: '#666', marginBottom: 8 },
   deviceList:     { flex: 1 },
-  deviceItem:     { backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: '#E5E5EA' },
-  deviceName:     { fontSize: 15, fontWeight: '600', color: '#1C1C1E' },
-  deviceSub:      { fontSize: 12, color: '#8E8E93', marginTop: 3, fontFamily: 'monospace' },
+  deviceItem:     { backgroundColor: '#FFF', borderRadius: 12, padding: 14, marginBottom: 8 },
+  deviceName:     { fontSize: 15, fontWeight: '600', color: '#000' },
+  deviceSub:      { fontSize: 12, color: '#666', marginTop: 3, fontFamily: 'monospace' },
 
-  chatHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E5E5EA' },
+  chatHeader:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#FFF', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#CCC' },
   chatHeaderLeft:   { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 8 },
-  chatHeaderTitle:  { fontSize: 16, fontWeight: '600', color: '#1C1C1E', marginLeft: 6, flex: 1 },
+  chatHeaderTitle:  { fontSize: 16, fontWeight: '600', color: '#000', marginLeft: 6, flex: 1 },
   greenDot:         { width: 9, height: 9, borderRadius: 5, backgroundColor: '#34C759' },
   discBtn:          { paddingHorizontal: 8, paddingVertical: 4 },
   discText:         { color: '#FF3B30', fontSize: 15, fontWeight: '500' },
@@ -677,17 +653,17 @@ const s = StyleSheet.create({
   bubble:         { maxWidth: '80%', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 18, marginBottom: 8 },
   bubbleOwn:      { backgroundColor: BLUE, alignSelf: 'flex-end', borderBottomRightRadius: 4 },
   bubblePeer:     { backgroundColor: '#E5E5EA', alignSelf: 'flex-start', borderBottomLeftRadius: 4 },
-  bubbleSender:   { fontSize: 11, fontWeight: '600', color: '#555', marginBottom: 2 },
+  bubbleSender:   { fontSize: 11, fontWeight: '600', color: '#666', marginBottom: 2 },
   bubbleText:     { fontSize: 15 },
-  textOwn:        { color: '#fff' },
-  textPeer:       { color: '#1C1C1E' },
+  textOwn:        { color: '#FFF' },
+  textPeer:       { color: '#000' },
   bubbleTime:     { fontSize: 10, marginTop: 3 },
   timeOwn:        { color: 'rgba(255,255,255,0.65)', textAlign: 'right' },
-  timePeer:       { color: '#8E8E93' },
+  timePeer:       { color: '#666' },
 
-  inputRow:       { flexDirection: 'row', padding: 10, paddingBottom: 10, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E5EA', gap: 8, alignItems: 'flex-end' },
-  input:          { flex: 1, borderWidth: 1, borderColor: '#D1D1D6', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F2F2F7', fontSize: 15, color: '#1C1C1E', maxHeight: 100 },
+  inputRow:       { flexDirection: 'row', padding: 10, paddingBottom: 10, backgroundColor: '#FFF', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: '#CCC', gap: 8, alignItems: 'flex-end' },
+  input:          { flex: 1, borderWidth: 1, borderColor: '#CCC', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#F2F2F7', fontSize: 15, color: '#000', maxHeight: 100 },
   sendBtn:        { backgroundColor: BLUE, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10 },
   sendDisabled:   { backgroundColor: '#C7C7CC' },
-  sendText:       { color: '#fff', fontWeight: '700', fontSize: 15 },
+  sendText:       { color: '#FFF', fontWeight: '700', fontSize: 15 },
 });
