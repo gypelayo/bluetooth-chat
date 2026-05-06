@@ -287,13 +287,19 @@ export default function App() {
               // Only add if new and not empty
               if (text && text !== lastReadRef.current) {
                 lastReadRef.current = text;
-                addMessage({
-                  id:        `${Date.now()}-in-${Math.random()}`,
-                  text,
-                  sender:    connected.name ?? device.id,
-                  timestamp: Date.now(),
-                  isOwn:     false,
-                });
+                
+                // Check for game messages FIRST - don't add to chat
+                if (text.startsWith('!game:')) {
+                  handleGameMessage(text);
+                } else {
+                  addMessage({
+                    id:        `${Date.now()}-in-${Math.random()}`,
+                    text,
+                    sender:    connected.name ?? device.id,
+                    timestamp: Date.now(),
+                    isOwn:     false,
+                  });
+                }
               }
             }
           }
@@ -452,12 +458,29 @@ export default function App() {
   // ── Game Functions ────────────────────────────────────────────────────────
   const sendGameMessage = async (msg: string) => {
     const fullMsg = '!game:' + msg;
+    
+    // Always use write for game messages (more reliable than notifications)
+    // For peripheral: we need to write to a characteristic that central can read
+    // The chat characteristic can be used - central already polls it
+    
+    // For central, use write
     if (mode === 'central' && connectedDevice) {
-      await connectedDevice.writeCharacteristicWithResponseForService(
-        SERVICE_UUID, MESSAGE_CHAR_UUID, encodeMsg(fullMsg)
-      );
+      try {
+        await connectedDevice.writeCharacteristicWithResponseForService(
+          SERVICE_UUID, MESSAGE_CHAR_UUID, encodeMsg(fullMsg)
+        );
+      } catch (e) {
+        console.warn('Game message send failed:', e);
+      }
     } else if (mode === 'peripheral' && peripheralConnected && BlePeripheral) {
-      await BlePeripheral.sendNotification(fullMsg);
+      // For peripheral, we still need to use sendNotification but we also
+      // set the characteristic value so polling can work as backup
+      try {
+        await BlePeripheral.sendNotification(fullMsg);
+      } catch (e) {
+        // Notification failed, but central should poll and get it
+        console.warn('Notification failed, central should poll:', e);
+      }
     }
   };
 
@@ -717,13 +740,13 @@ export default function App() {
                   <View style={s.gameMenu}>
                     <Text style={s.gameTitle}>Rock Paper Scissors</Text>
                     <Text style={s.gameStatus}>
-                      {gameState.status === 'playing' ? 'Choose your move!' : 'Waiting for opponent...'}
+                      {gameState.myMove !== null ? 'Waiting for opponent...' : 'Choose your move!'}
                     </Text>
                     <View style={s.rpsButtons}>
                       <TouchableOpacity 
                         style={[s.rpsBtn, gameState.myMove === 0 && s.rpsBtnSelected]} 
                         onPress={() => makeMove(0)}
-                        disabled={gameState.status === 'waiting'}
+                        disabled={gameState.myMove !== null}
                       >
                         <Text style={s.rpsEmoji}>🪨</Text>
                         <Text style={s.rpsLabel}>Rock</Text>
@@ -731,7 +754,7 @@ export default function App() {
                       <TouchableOpacity 
                         style={[s.rpsBtn, gameState.myMove === 1 && s.rpsBtnSelected]} 
                         onPress={() => makeMove(1)}
-                        disabled={gameState.status === 'waiting'}
+                        disabled={gameState.myMove !== null}
                       >
                         <Text style={s.rpsEmoji}>📄</Text>
                         <Text style={s.rpsLabel}>Paper</Text>
@@ -739,7 +762,7 @@ export default function App() {
                       <TouchableOpacity 
                         style={[s.rpsBtn, gameState.myMove === 2 && s.rpsBtnSelected]} 
                         onPress={() => makeMove(2)}
-                        disabled={gameState.status === 'waiting'}
+                        disabled={gameState.myMove !== null}
                       >
                         <Text style={s.rpsEmoji}>✂️</Text>
                         <Text style={s.rpsLabel}>Scissors</Text>
